@@ -23,13 +23,19 @@ const pool = new Pool({
   port: 5432,
 });
 
+const corsOptions = {
+  origin: ['http://rhm.co.kr', 'http://www.rhm.co.kr', 'http://localhost:3000'],
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
 
 // 기본 경로
 app.get('/', (req, res) => {
   res.send('Hello World!');
 });
 
-app.post('/getRewards', async (req, res) => {
+app.post('/api/getRewards', async (req, res) => {
   const { username } = req.body;
   try {
     const userResult = await pool.query('SELECT id, role FROM users WHERE username = $1', [username]);
@@ -57,7 +63,7 @@ app.post('/getRewards', async (req, res) => {
   }
 });
 
-app.post('/addReward', async (req, res) => {
+app.post('/api/addReward', async (req, res) => {
   const { username, company_name, setting_keyword, final_keyword, place_code, work_volume, start_date, end_date } = req.body;
   console.log(username, company_name, setting_keyword, final_keyword, place_code, work_volume, start_date, end_date)
   if (!username || !company_name || !setting_keyword || !final_keyword || !place_code || !work_volume || !start_date || !end_date) {
@@ -97,7 +103,7 @@ app.post('/addReward', async (req, res) => {
   }
 });
 
-app.post('/extendReward', async (req, res) => {
+app.post('/api/extendReward', async (req, res) => {
   const { idx, end_date } = req.body;
   console.log(idx, end_date)
   if (!idx || !end_date) {
@@ -120,7 +126,7 @@ app.post('/extendReward', async (req, res) => {
   }
 });
 
-app.post('/extendMultipleRewards', async (req, res) => {
+app.post('/api/extendMultipleRewards', async (req, res) => {
   const { rewards } = req.body;
 
   try {
@@ -142,7 +148,7 @@ app.post('/extendMultipleRewards', async (req, res) => {
   }
 });
 
-app.post('/editReward', async (req, res) => {
+app.post('/api/editReward', async (req, res) => {
   const { idx, company_name, setting_keyword, final_keyword, place_code, work_volume } = req.body;
 
   if (!idx || !company_name || !setting_keyword || !final_keyword || !place_code || !work_volume) {
@@ -169,7 +175,7 @@ app.post('/editReward', async (req, res) => {
   }
 });
 
-app.post('/deleteRewards', async (req, res) => {
+app.post('/api/deleteRewards', async (req, res) => {
   const { ids } = req.body;
   if (!ids || !Array.isArray(ids) || ids.length === 0) {
     return res.status(400).json({ message: 'No IDs provided' });
@@ -186,11 +192,12 @@ app.post('/deleteRewards', async (req, res) => {
 });
 
 
-app.post('/login', async (req, res) => {
+app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
   try {
     const user = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
     if (user.rows.length === 0) {
+      console.error(`Invalid credentials: No user found with username ${username}`);
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
@@ -202,6 +209,7 @@ app.post('/login', async (req, res) => {
     console.log(`Password match: ${validPassword}`);
 
     if (!validPassword) {
+      console.error('Invalid credentials: Password does not match');
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
@@ -215,12 +223,12 @@ app.post('/login', async (req, res) => {
 
     res.json({ token, userInfo });
   } catch (err) {
-    console.error(err);
+    console.error('Server error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-app.post('/members', async (req, res) => {
+app.post('/api/members', async (req, res) => {
   const { username } = req.body;
   try {
     const user = await pool.query('SELECT id FROM users WHERE username = $1', [username]);
@@ -238,7 +246,7 @@ app.post('/members', async (req, res) => {
   }
 });
 
-app.post('/addMember', async (req, res) => {
+app.post('/api/addMember', async (req, res) => {
   const { username, password, point, admin } = req.body;
   if (!username || !password || !point || !admin) {
     return res.status(400).json({ message: 'All fields are required' });
@@ -266,7 +274,7 @@ app.post('/addMember', async (req, res) => {
   }
 });
 
-app.post('/deleteMembers', async (req, res) => {
+app.post('/api/deleteMembers', async (req, res) => {
   const { ids } = req.body;
   if (!ids || !Array.isArray(ids) || ids.length === 0) {
     return res.status(400).json({ message: 'No IDs provided' });
@@ -308,7 +316,7 @@ app.post('/deleteMembers', async (req, res) => {
   }
 });
 
-app.post('/updateUsedStatus', async (req, res) => {
+app.post('/api/updateUsedStatus', async (req, res) => {
   const { idx, used } = req.body;
 
   try {
