@@ -1101,11 +1101,11 @@ const updateRewardStatus = async () => {
   }
 };
 
-// 스케줄러 설정 (30분마다 실행)
-cron.schedule('*/1 * * * *', () => {
+
+cron.schedule('1 0 * * *', () => {
   deleteOldWorkVolumeHistory();
   updateRewardStatus();
-  console.log('insertDailyWorkVolume and deleteOldWorkVolumeHistory executed');
+  console.log('updateRewardStatus and deleteOldWorkVolumeHistory executed');
 });
 
 // 스케줄러 설정 (30분마다 실행)
