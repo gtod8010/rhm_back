@@ -662,12 +662,12 @@ app.post("/api/addMember", async (req, res) => {
     }
     const adminId = adminResult.rows[0].id;
 
-    // 회원 정보를 삽입합니다. role을 기본값 'user'로 설정합니다.
-    await pool.query(
-      "INSERT INTO users (username, password, point, role, agency, admin_id) VALUES ($1, $2, $3, $4, $5, $6)",
+    const insertResult = await pool.query(
+      "INSERT INTO users (username, password, point, role, agency, admin_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
       [username, hashedPassword, point, "user", agency, adminId]
     );
-    res.status(201).json({ message: "Member added successfully" });
+    const newUser = insertResult.rows[0];
+    res.status(201).json(newUser);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
