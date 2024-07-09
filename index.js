@@ -120,6 +120,7 @@ app.post("/api/addReward", async (req, res) => {
     setting_keyword,
     final_keyword,
     place_code,
+    rewardType,
     work_volume,
     start_date,
     end_date,
@@ -133,7 +134,8 @@ app.post("/api/addReward", async (req, res) => {
     !place_code ||
     !work_volume ||
     !start_date ||
-    !end_date
+    !end_date ||
+    !rewardType
   ) {
     return res.status(400).json({ message: "All fields are required" });
   }
@@ -195,7 +197,7 @@ app.post("/api/addReward", async (req, res) => {
           idx,
           username,
           rewardNo,
-          "플레이스(저장)",
+          rewardType,
           false,
           "비활성화",
           company_name,
@@ -667,6 +669,13 @@ app.post("/api/addMember", async (req, res) => {
       [username, hashedPassword, point, "user", agency, adminId]
     );
     const newUser = insertResult.rows[0];
+
+    // 포인트 지급 히스토리를 추가합니다.
+    await pool.query(
+      "INSERT INTO point_history (user_id, username, category, point, company_name, date) VALUES ($1, $2, $3, $4, $5, NOW())",
+      [newUser.id, username, "회원가입", point, agency]
+    );
+
     res.status(201).json(newUser);
   } catch (err) {
     console.error(err);
@@ -720,6 +729,10 @@ app.post("/api/deleteMembers", async (req, res) => {
       );
       const usernames = usernamesResult.rows.map((row) => row.username);
 
+      // reward_history 테이블에서 관련 row 삭제
+      const deleteRewardHistoryQuery = "DELETE FROM reward_history WHERE user_id = ANY($1::int[])";
+      await client.query(deleteRewardHistoryQuery, [ids]);
+
       // users 테이블에서 삭제
       const deleteUsersQuery = "DELETE FROM users WHERE id = ANY($1::int[])";
       await client.query(deleteUsersQuery, [ids]);
@@ -742,6 +755,7 @@ app.post("/api/deleteMembers", async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 // ------------------------------------------------ HISTORY ------------------------------------------------ //
 
@@ -1061,14 +1075,27 @@ const insertDailyWorkVolume = async () => {
         const remainingVolume = reward.work_volume - currentWorkVolume;
 
         if (remainingVolume > 0) {
-          const insertVolume = Math.ceil(remainingVolume / ((24 - today.getHours()) * 2)); // 남은 시간을 30분 단위로 나누어 추가
+          const now = new Date();
+          const hoursRemaining = 24 - now.getHours();
+          const insertVolumePerInterval = Math.floor(remainingVolume / (hoursRemaining * 2));
 
-          for (let i = 0; i < insertVolume; i++) {
+          for (let i = 0; i < insertVolumePerInterval; i++) {
             const randomTime = generateRandomPastTime();
             await pool.query(
               'INSERT INTO work_volume_history (reward_id, gender, age_group, ip_address, access_time) VALUES ($1, $2, $3, $4, $5)',
               [reward.idx, generateGender(), generateAgeGroup(), generateKoreanIPAddress(), randomTime]
             );
+          }
+
+          const remainingWorkVolume = remainingVolume - (insertVolumePerInterval * (hoursRemaining * 2));
+          if (remainingWorkVolume > 0) {
+            const randomTime = generateRandomPastTime();
+            for (let i = 0; i < remainingWorkVolume; i++) {
+              await pool.query(
+                'INSERT INTO work_volume_history (reward_id, gender, age_group, ip_address, access_time) VALUES ($1, $2, $3, $4, $5)',
+                [reward.idx, generateGender(), generateAgeGroup(), generateKoreanIPAddress(), randomTime]
+              );
+            }
           }
         }
       }
